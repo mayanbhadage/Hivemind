@@ -159,3 +159,19 @@ h3 {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
+
+/* Glassmorphism Panel */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 2rem;
+  transition: background 0.3s ease;
+}
+
+[data-theme='dark'] .glass-panel {
+  background: rgba(17, 24, 39, 0.6);
+  border-color: rgba(255, 255, 255, 0.05);
+}
