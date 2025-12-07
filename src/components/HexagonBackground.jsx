@@ -39,7 +39,7 @@ export default function HexagonBackground() {
         const doodleAssets = [];
 
         // Neon Color Palettes (Hues)
-        const neonColors = [120, 190, 300, 280, 60];
+        const neonColors = [120, 190, 300, 280, 60, 0, 240, 330];
 
         // Pre-render icons to images
         const loadDoodles = async () => {
@@ -293,7 +293,7 @@ export default function HexagonBackground() {
 
             // 1. Generate New Batch
             if (now > nextWindowTime && hexagons.length > 0) {
-                const count = 10;
+                const count = 25;
                 // Filter for Top 40% of screen
                 const topCandidateHexes = hexagons.filter(h => h.y < h * 0.4);
                 const candidates = topCandidateHexes.length > count ? topCandidateHexes : hexagons;
