@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor, Beer, Gamepad, Headphones, Terminal, Cpu, Database, Cloud, Server, Wifi } from 'lucide-react';
+import { Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor, Beer, Gamepad, Headphones, Terminal, Cpu, Database, Cloud, Server, Wifi, Guitar, Cat, Dog } from 'lucide-react';
+import { CricketBat, Football } from './CustomIcons';
 
 export default function HexagonBackground() {
     const canvasRef = useRef(null);
@@ -19,11 +20,13 @@ export default function HexagonBackground() {
         let w, h;
         const hexSize = 25; // Reduced from 50
         const hexagons = [];
+        const activeHexagons = new Set();
+        const hexMap = new Map();
         const ripples = [];
         let isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
         // Doodle Icons
-        const icons = [Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor, Beer, Gamepad, Headphones, Terminal, Cpu, Database, Cloud, Server, Wifi];
+        const icons = [Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor, Beer, Gamepad, Headphones, Terminal, Cpu, Database, Cloud, Server, Wifi, Guitar, Cat, Dog, CricketBat, Football];
         // Structure: [{ base: Image, neons: { [hue]: Image } }]
         const doodleAssets = [];
 
@@ -43,7 +46,7 @@ export default function HexagonBackground() {
                     <Icon
                         size={hexSize * 1.2}
                         strokeWidth={1.5}
-                        color={isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"}
+                        color={isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.1)"}
                     />
                 );
                 assets.base = await loadImage(`data:image/svg+xml;base64,${btoa(baseSvg)}`);
@@ -76,6 +79,10 @@ export default function HexagonBackground() {
                 const img = new Image();
                 img.src = src;
                 img.onload = () => resolve(img);
+                img.onerror = (e) => {
+                    console.error("Failed to load image", e);
+                    resolve(null); // Resolve with null to avoid hanging
+                };
             });
         };
 
@@ -143,6 +150,8 @@ export default function HexagonBackground() {
             h = canvas.height = window.innerHeight;
             hexagons.length = 0;
             ripples.length = 0;
+            activeHexagons.clear();
+            hexMap.clear();
             gridColor = getGridColor();
             isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
@@ -167,14 +176,16 @@ export default function HexagonBackground() {
                     const doodleIndex = Math.floor(Math.random() * doodleAssets.length);
                     gridMap.set(`${row},${col}`, doodleIndex);
 
-                    hexagons.push({
+                    const hex = {
                         row, col, // Store grid coordinates for neighbor lookup
                         x: cx,
                         y: cy,
                         intensity: 0,
                         hue: 180,
                         doodleIndex: doodleIndex
-                    });
+                    };
+                    hexagons.push(hex);
+                    hexMap.set(`${row},${col}`, hex); // Populate fast lookup map
                 }
             }
 
@@ -283,80 +294,109 @@ export default function HexagonBackground() {
             // Update Ripples
             for (let i = ripples.length - 1; i >= 0; i--) {
                 const r = ripples[i];
+                r.speed += r.acceleration; // Accelerate
                 r.radius += r.speed;
                 if (r.radius > r.maxRadius) {
                     ripples.splice(i, 1);
                 }
             }
 
-            const hasRipples = ripples.length > 0;
+            // Spatial Partitioning & Ripple Influence
+            const r = hexSize;
+            const wHex = Math.sqrt(3) * r;
+            const hHex = 2 * r;
+            const vertSpacing = hHex * 0.75;
 
-            hexagons.forEach(hex => {
-                // Decay
-                if (hex.intensity > 0) {
-                    hex.intensity *= 0.92;
-                    if (hex.intensity < 0.01) hex.intensity = 0;
-                }
+            ripples.forEach(ripple => {
+                const buffer = 150;
+                const minRow = Math.floor((ripple.y - ripple.radius - buffer) / vertSpacing);
+                const maxRow = Math.ceil((ripple.y + ripple.radius + buffer) / vertSpacing);
+                const minCol = Math.floor((ripple.x - ripple.radius - buffer) / wHex);
+                const maxCol = Math.ceil((ripple.x + ripple.radius + buffer) / wHex);
 
-                // Ripple Influence
-                if (hasRipples) {
-                    ripples.forEach(r => {
-                        const dx = hex.x - r.x;
-                        const dy = hex.y - r.y;
-                        if (Math.abs(dx) < r.radius + 50 && Math.abs(dy) < r.radius + 50) {
-                            const d = Math.sqrt(dx * dx + dy * dy);
-                            const ringWidth = 60; // Slightly wider ring
-                            if (Math.abs(d - r.radius) < ringWidth) {
-                                const ringIntensity = (1 - Math.abs(d - r.radius) / ringWidth) * r.strength * (1 - r.radius / r.maxRadius);
-                                if (ringIntensity > 0.1) {
-                                    hex.intensity += ringIntensity * 0.5;
-                                    hex.hue = r.hue; // Adopt ripple color
+                for (let row = minRow; row <= maxRow; row++) {
+                    for (let col = minCol; col <= maxCol; col++) {
+                        const key = `${row},${col}`;
+                        const hex = hexMap.get(key);
+
+                        if (hex) {
+                            const dx = hex.x - ripple.x;
+                            const dy = hex.y - ripple.y;
+                            const distSq = dx * dx + dy * dy;
+                            const outerRadius = ripple.radius + 100;
+
+                            if (distSq < outerRadius * outerRadius) {
+                                const d = Math.sqrt(distSq);
+                                const ringWidth = 100;
+                                const distToRing = Math.abs(d - ripple.radius);
+
+                                if (distToRing < ringWidth) {
+                                    const normDist = distToRing / ringWidth;
+                                    const smoothFactor = (Math.cos(normDist * Math.PI) + 1) / 2;
+
+                                    const ringIntensity = smoothFactor * ripple.strength * (1 - ripple.radius / ripple.maxRadius);
+
+                                    if (ringIntensity > 0.01) {
+                                        hex.intensity += ringIntensity * 0.6;
+                                        hex.hue = ripple.hue;
+                                        activeHexagons.add(hex);
+                                    }
                                 }
                             }
-                        }
-                    });
-                }
-
-                // Clamp
-                hex.intensity = Math.min(1, Math.max(0, hex.intensity));
-
-                // Draw Active Hexagons (Doodle Highlight Only)
-                if (hex.intensity > 0.01) {
-                    const assets = doodleAssets[hex.doodleIndex % doodleAssets.length];
-                    if (assets) {
-                        const neonImg = assets.neons[hex.hue];
-                        if (neonImg) {
-                            const iconSize = hexSize * 0.8;
-
-                            ctx.globalAlpha = hex.intensity;
-                            ctx.shadowBlur = 15 * hex.intensity;
-                            ctx.shadowColor = `hsl(${hex.hue}, 100%, 60%)`;
-
-                            ctx.drawImage(
-                                neonImg,
-                                hex.x - iconSize / 2,
-                                hex.y - iconSize / 2,
-                                iconSize,
-                                iconSize
-                            );
-
-                            ctx.shadowBlur = 0;
-                            ctx.globalAlpha = 1;
                         }
                     }
                 }
             });
 
+            // Render Active Hexagons
+            ctx.globalCompositeOperation = 'lighter';
+
+            activeHexagons.forEach(hex => {
+                hex.intensity *= 0.92;
+
+                if (hex.intensity < 0.01) {
+                    hex.intensity = 0;
+                    activeHexagons.delete(hex);
+                    return;
+                }
+
+                const assets = doodleAssets[hex.doodleIndex % doodleAssets.length];
+                if (assets) {
+                    const neonImg = assets.neons[hex.hue];
+                    if (neonImg) {
+                        const iconSize = hexSize * 0.8;
+                        const alpha = Math.min(1, hex.intensity);
+                        ctx.globalAlpha = alpha;
+
+                        ctx.drawImage(
+                            neonImg,
+                            hex.x - iconSize / 2,
+                            hex.y - iconSize / 2,
+                            iconSize,
+                            iconSize
+                        );
+                    }
+                }
+            });
+
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = 1;
+
             animationFrameId = requestAnimationFrame(update);
         };
 
         const handleMouseMove = (e) => {
-            mouseRef.current = { x: e.clientX, y: e.clientY, active: true };
+            const rect = canvas.getBoundingClientRect();
+            mouseRef.current = {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top,
+                active: true
+            };
         };
 
         const handleClick = (e) => {
-            // Ignore clicks on interactive elements
-            if (e.target.closest('a, button, input, textarea, select, [role="button"]')) {
+            // Ignore clicks on interactive elements and glass panels
+            if (e.target.closest('a, button, input, textarea, select, [role="button"], .glass-panel')) {
                 return;
             }
 
@@ -373,7 +413,8 @@ export default function HexagonBackground() {
                 y: y,
                 radius: 0,
                 maxRadius: Math.max(w, h) * 1.5, // Cover entire screen
-                speed: 12,
+                speed: 5, // Start slower
+                acceleration: 0.4, // Accelerate over time
                 strength: 1.2,
                 hue: hue
             });

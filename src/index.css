@@ -5,7 +5,7 @@
   --secondary-bg: #f3f4f6;
   --secondary-bg-rgb: 243, 244, 246;
   --border-color: #e5e7eb;
-  --hex-grid-color: rgba(0, 0, 0, 0.05);
+  --hex-grid-color: rgba(0, 0, 0, 0.1);
   --font-sans: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
 }
 
@@ -16,7 +16,7 @@
   --secondary-bg: #1f2937;
   --secondary-bg-rgb: 31, 41, 55;
   --border-color: #374151;
-  --hex-grid-color: rgba(255, 255, 255, 0.05);
+  --hex-grid-color: rgba(255, 255, 255, 0.1);
 }
 
 * {

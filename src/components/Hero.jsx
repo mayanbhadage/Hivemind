@@ -38,73 +38,60 @@ const useTypewriter = (text, speed = 100, delay = 2000) => {
 };
 
 export default function Hero() {
-  const [clicks, setClicks] = useState(0);
-  const [isSpinning, setIsSpinning] = useState(false);
-
   const roles = ["Web Apps", "Experiences", "The Future"];
   const typingText = useTypewriter(roles);
 
-  const handleImageClick = () => {
-    if (isSpinning) return;
-
-    const newClicks = clicks + 1;
-    setClicks(newClicks);
-
-    if (newClicks === 3) {
-      setIsSpinning(true);
-      setClicks(0);
-      setTimeout(() => setIsSpinning(false), 2000); // Match animation duration
-    }
-  };
-
   return (
     <section id="about" style={{ minHeight: '80vh', display: 'flex', alignItems: 'center' }}>
-      <div className="container" style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '4rem',
-        alignItems: 'center'
-      }}>
-        <div className="glass-panel">
-          <h1 style={{ marginBottom: '1.5rem', minHeight: '3.6em' }}>
-            Hi, I'm <span style={{ color: 'var(--accent-color)' }}>Mayan</span>.<br />
-            I build <span style={{ color: 'var(--text-color)' }}>{typingText}</span>
-            <span className="cursor">|</span>
-          </h1>
-          <p style={{ fontSize: '1.25rem', marginBottom: '2rem' }}>
-            Currently shipping features as an <span style={{ color: 'var(--accent-color)', fontWeight: 'bold' }}>Software Engineer 2 at Microsoft</span>.
-            I tackle problems with O(n) complexity and O(1) excuses.
-            Armed with a Master's & Bachelor's in CS and a license to push to production.
-          </p>
-          <a href="#projects" style={{
-            display: 'inline-block',
-            padding: '0.75rem 1.5rem',
-            backgroundColor: 'var(--accent-color)',
-            color: 'white',
-            borderRadius: '0.5rem',
-            fontWeight: '600',
-            textDecoration: 'none'
-          }}>
-            View My Work
-          </a>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <div
-            onClick={handleImageClick}
-            className={isSpinning ? 'spin-animation' : ''}
-            style={{
-              width: '300px',
-              height: '300px',
-              borderRadius: '50%',
-              backgroundColor: 'var(--secondary-bg)',
-              backgroundImage: `url(${profileImg})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center 20%',
-              border: '4px solid var(--border-color)',
-              cursor: 'pointer',
-              transition: 'transform 0.2s'
-            }}
-          ></div>
+      <div className="container">
+        <div className="glass-panel" style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '4rem',
+          alignItems: 'center',
+          padding: '3rem'
+        }}>
+          {/* Text Content */}
+          <div>
+            <h1 style={{ marginBottom: '1.5rem', minHeight: '3.6em' }}>
+              Hi, I'm <span style={{ color: 'var(--accent-color)' }}>Mayan</span>.<br />
+              I build <span style={{ color: 'var(--text-color)' }}>{typingText}</span>
+              <span className="cursor">|</span>
+            </h1>
+            <p style={{ fontSize: '1.25rem', marginBottom: '2rem' }}>
+              Currently shipping features as an <span style={{ color: 'var(--accent-color)', fontWeight: 'bold' }}>Software Engineer 2 at Microsoft</span>.
+              I tackle problems with O(n) complexity and O(1) excuses.
+              Armed with a Master's & Bachelor's in CS and a license to push to production.
+            </p>
+            <a href="#projects" style={{
+              display: 'inline-block',
+              padding: '0.75rem 1.5rem',
+              backgroundColor: 'var(--accent-color)',
+              color: 'white',
+              borderRadius: '0.5rem',
+              fontWeight: '600',
+              textDecoration: 'none'
+            }}>
+              View My Work
+            </a>
+          </div>
+
+          {/* Image Content */}
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <div
+              style={{
+                width: '300px',
+                height: '350px', // Rectangular portrait
+                borderRadius: '12px', // Slight rounding for aesthetics
+                backgroundColor: 'var(--secondary-bg)',
+                backgroundImage: `url(${profileImg})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center 20%',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)'
+              }}
+            ></div>
+          </div>
         </div>
       </div>
     </section>
