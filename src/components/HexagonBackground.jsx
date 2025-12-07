@@ -30,6 +30,10 @@ export default function HexagonBackground() {
         let gridColor = getGridColor();
         let isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
+        // Wandering Highlight State (Iter 3: Staggered Batch)
+        let activeBatch = []; // Array of { hex, startTime, endTime, assignedHue }
+        let nextWindowTime = Date.now() + 1000; // Start shortly after load
+
         // Doodle Icons
         const icons = [Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor, Beer, Gamepad2, Headphones, Terminal, Cpu, Database, Cloud, Server, MountainSnow, Guitar, Cat, Dog, Atom, Settings, Tent, ChessQueen, Binary, Binoculars, Hop, Cookie, GitGraph, Pi, Snowflake, MousePointer, Bug, FileCode, Variable];
         const doodleAssets = [];
@@ -163,6 +167,10 @@ export default function HexagonBackground() {
             gridColor = getGridColor();
             isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
+            // Reset wandering state on re-init
+            activeBatch = [];
+            nextWindowTime = Date.now() + 1000;
+
             const r = hexSize;
             const wHex = Math.sqrt(3) * r;
             const hHex = 2 * r;
@@ -202,9 +210,6 @@ export default function HexagonBackground() {
             // Check threshold: 60px squared = 3600.
             const thresholdSq = 60 * 60;
 
-            // Optimization: Grid Partitioning for linking only
-            // O(N^2) is fine for ~200-300 hexes (90k checks).
-            // But let's be safe if user has big screen.
             hexagons.forEach(hex => {
                 // Brute force is fast enough for initialization frames
                 hexagons.forEach(neighbor => {
@@ -254,7 +259,6 @@ export default function HexagonBackground() {
                 }
 
                 // Final Unconditional Check: Flag conflicts RED
-                // This runs regardless of what the loop thinks.
                 hexagons.forEach(hex => {
                     const neighborIndices = new Set();
                     hex.neighbors.forEach(n => neighborIndices.add(n.doodleIndex));
@@ -283,6 +287,66 @@ export default function HexagonBackground() {
                 ctx.drawImage(offscreenCanvas, 0, 0);
             }
 
+            const now = Date.now();
+
+            // --- Wandering Highlight Logic (Iter 3: Staggered Batch) ---
+
+            // 1. Generate New Batch
+            if (now > nextWindowTime && hexagons.length > 0) {
+                const count = 10;
+                // Filter for Top 40% of screen
+                const topCandidateHexes = hexagons.filter(h => h.y < h * 0.4);
+                const candidates = topCandidateHexes.length > count ? topCandidateHexes : hexagons;
+
+                activeBatch = [];
+                const usedIndices = new Set();
+
+                // Color Pool Shuffling
+                const colorPool = [...neonColors, ...neonColors, ...neonColors];
+                // Fisher-Yates shuffle
+                for (let i = colorPool.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [colorPool[i], colorPool[j]] = [colorPool[j], colorPool[i]];
+                }
+
+                let colorIdx = 0;
+
+                // Select 10 unique hexes
+                while (activeBatch.length < count && usedIndices.size < candidates.length) {
+                    const idx = Math.floor(Math.random() * candidates.length);
+                    if (!usedIndices.has(idx)) {
+                        usedIndices.add(idx);
+
+                        // Stagger start time: Random delay between 0 and 8000ms
+                        // This ensures they appear scattered throughout the 10s window
+                        const delay = Math.random() * 8000;
+                        const startTime = now + delay;
+
+                        activeBatch.push({
+                            hex: candidates[idx],
+                            startTime: startTime,
+                            endTime: startTime + 1800, // 1.8s hold duration
+                            assignedHue: colorPool[colorIdx % colorPool.length]
+                        });
+                        colorIdx++;
+                    }
+                }
+
+                nextWindowTime = now + 10000; // Next batch in 10 seconds
+            }
+
+            // 2. Process Active Batch
+            // Check if any hexes in the batch are currently "alive" based on their individual timeline
+            activeBatch.forEach(item => {
+                if (now >= item.startTime && now < item.endTime) {
+                    item.hex.intensity = 1.0;
+                    if (!activeHexagons.has(item.hex)) {
+                        item.hex.hue = item.assignedHue;
+                        activeHexagons.add(item.hex);
+                    }
+                }
+            });
+
             // 1. Update Ripples (Expansion & Acceleration)
             for (let i = ripples.length - 1; i >= 0; i--) {
                 const r = ripples[i];
@@ -296,8 +360,7 @@ export default function HexagonBackground() {
                 }
 
                 // 2. Ignite Hexagons (Spatial Check)
-                // Using simple distance check for robustness
-                const ringWidth = r.speed * 3.0; // Thick ring for visibility
+                const ringWidth = r.speed * 3.0;
                 const innerRadiusSq = (r.radius - ringWidth) ** 2;
                 const outerRadiusSq = (r.radius) ** 2;
 
@@ -308,7 +371,7 @@ export default function HexagonBackground() {
 
                     if (distSq >= innerRadiusSq && distSq <= outerRadiusSq) {
                         // Ignite!
-                        if (hex.intensity < 0.3) { // Only if not already bright
+                        if (hex.intensity < 0.3) {
                             hex.intensity = 1.0;
                             hex.hue = r.hue;
                             activeHexagons.add(hex);
@@ -385,7 +448,20 @@ export default function HexagonBackground() {
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
-            const hue = neonColors[colorIndexRef.current % neonColors.length];
+            const centerHex = getHexAt(x, y);
+
+            // Updated Interaction Logic:
+            // Only trigger shockwave if specific hexagon is highlighted (intensity > 0.5)
+            // AND we found a hex at that location.
+            if (!centerHex || centerHex.intensity <= 0.5) {
+                return;
+            }
+
+            // Iter 3: Inherit hex color
+            const hue = centerHex.hue || neonColors[colorIndexRef.current % neonColors.length];
+
+            // Should probably increment random ref just to keep entropy moving, 
+            // even if we don't use it for this specific click
             colorIndexRef.current++;
 
             // Create Shockwave
@@ -399,13 +475,10 @@ export default function HexagonBackground() {
                 hue: hue
             });
 
-            // Also light up the center immediately
-            const centerHex = getHexAt(x, y);
-            if (centerHex) {
-                centerHex.intensity = 1.0;
-                centerHex.hue = hue;
-                activeHexagons.add(centerHex);
-            }
+            // Maintain intensity on click
+            centerHex.intensity = 1.0;
+            centerHex.hue = hue;
+            activeHexagons.add(centerHex);
         };
 
         loadDoodles();
