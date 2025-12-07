@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor, Beer, Gamepad, Headphones, Terminal, Cpu, Database, Cloud, Server, Wifi, Guitar, Cat, Dog } from 'lucide-react';
-import { CricketBat, Football } from './CustomIcons';
+import { Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor, Beer, Gamepad2, Headphones, Terminal, Cpu, Database, Cloud, Server, Wifi, Guitar, Cat, Dog, Atom, Settings, Tent, ChessQueen, Binary, Binoculars, Hop, Cookie } from 'lucide-react';
+
 
 export default function HexagonBackground() {
     const canvasRef = useRef(null);
@@ -26,7 +26,7 @@ export default function HexagonBackground() {
         let isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
         // Doodle Icons
-        const icons = [Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor, Beer, Gamepad, Headphones, Terminal, Cpu, Database, Cloud, Server, Wifi, Guitar, Cat, Dog, CricketBat, Football];
+        const icons = [Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor, Beer, Gamepad2, Headphones, Terminal, Cpu, Database, Cloud, Server, Wifi, Guitar, Cat, Dog, Atom, Settings, Tent, ChessQueen, Binary, Binoculars, Hop, Cookie];
         // Structure: [{ base: Image, neons: { [hue]: Image } }]
         const doodleAssets = [];
 
@@ -46,7 +46,7 @@ export default function HexagonBackground() {
                     <Icon
                         size={hexSize * 1.2}
                         strokeWidth={1.5}
-                        color={isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.1)"}
+                        color={isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)"}
                     />
                 );
                 assets.base = await loadImage(`data:image/svg+xml;base64,${btoa(baseSvg)}`);
