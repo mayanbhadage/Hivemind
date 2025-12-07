@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor, Beer, Gamepad2, Headphones, Terminal, Cpu, Database, Cloud, Server, Wifi, Guitar, Cat, Dog, Atom, Settings, Tent, ChessQueen, Binary, Binoculars, Hop, Cookie } from 'lucide-react';
+import { Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor, Beer, Gamepad2, Headphones, Terminal, Cpu, Database, Cloud, Server, MountainSnow, Guitar, Cat, Dog, Atom, Settings, Tent, ChessQueen, Binary, Binoculars, Hop, Cookie, GitGraph, Pi, Snowflake, MousePointer, Bug, FileCode, Variable } from 'lucide-react';
 
 
 export default function HexagonBackground() {
@@ -31,7 +31,7 @@ export default function HexagonBackground() {
         let isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
         // Doodle Icons
-        const icons = [Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor, Beer, Gamepad2, Headphones, Terminal, Cpu, Database, Cloud, Server, Wifi, Guitar, Cat, Dog, Atom, Settings, Tent, ChessQueen, Binary, Binoculars, Hop, Cookie];
+        const icons = [Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor, Beer, Gamepad2, Headphones, Terminal, Cpu, Database, Cloud, Server, MountainSnow, Guitar, Cat, Dog, Atom, Settings, Tent, ChessQueen, Binary, Binoculars, Hop, Cookie, GitGraph, Pi, Snowflake, MousePointer, Bug, FileCode, Variable];
         const doodleAssets = [];
 
         // Neon Color Palettes (Hues)
@@ -110,6 +110,21 @@ export default function HexagonBackground() {
             offscreenCtx.lineWidth = 1;
 
             hexagons.forEach(hex => {
+                // Debug Visualization
+                if (hex.hasConflict) {
+                    offscreenCtx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+                    offscreenCtx.beginPath();
+                    for (let i = 0; i < 6; i++) {
+                        const angle = (Math.PI / 3) * i - Math.PI / 6;
+                        const px = hex.x + hexSize * Math.cos(angle);
+                        const py = hex.y + hexSize * Math.sin(angle);
+                        if (i === 0) offscreenCtx.moveTo(px, py);
+                        else offscreenCtx.lineTo(px, py);
+                    }
+                    offscreenCtx.closePath();
+                    offscreenCtx.fill();
+                }
+
                 offscreenCtx.beginPath();
                 for (let i = 0; i < 6; i++) {
                     const angle = (Math.PI / 3) * i - Math.PI / 6;
@@ -172,12 +187,92 @@ export default function HexagonBackground() {
                         y: cy,
                         intensity: 0,
                         hue: 180,
-                        doodleIndex: doodleIndex
+                        doodleIndex: doodleIndex,
+                        neighbors: [], // Restore neighbors for conflict resolution
+                        hasConflict: false
                     };
                     hexagons.push(hex);
                 }
             }
-            // No neighbor linking needed for pure shockwave
+
+            // Link Neighbors (Distance-Based for Robustness)
+            // Physics logic: link anything close enough to be a neighbor.
+            // Dist between neighbors is ~sqrt(3)*r ~= 43px.
+            // Next closest (diagonal skipping 1) is ~75px.
+            // Check threshold: 60px squared = 3600.
+            const thresholdSq = 60 * 60;
+
+            // Optimization: Grid Partitioning for linking only
+            // O(N^2) is fine for ~200-300 hexes (90k checks).
+            // But let's be safe if user has big screen.
+            hexagons.forEach(hex => {
+                // Brute force is fast enough for initialization frames
+                hexagons.forEach(neighbor => {
+                    if (hex === neighbor) return;
+                    const dx = hex.x - neighbor.x;
+                    const dy = hex.y - neighbor.y;
+                    const distSq = dx * dx + dy * dy;
+
+                    if (distSq < thresholdSq) {
+                        hex.neighbors.push(neighbor);
+                    }
+                });
+            });
+
+            // Iterative Conflict Resolution for Doodles
+            const resolveConflicts = () => {
+                let conflictsFound = true;
+                let passes = 0;
+                const maxPasses = 50;
+
+                while (conflictsFound && passes < maxPasses) {
+                    conflictsFound = false;
+                    passes++;
+                    const useDeterministic = passes > 20;
+
+                    hexagons.forEach(hex => {
+                        const neighborIndices = new Set();
+                        hex.neighbors.forEach(n => neighborIndices.add(n.doodleIndex));
+
+                        if (neighborIndices.has(hex.doodleIndex)) {
+                            conflictsFound = true;
+                            // Deterministic Solver
+                            const validIndices = [];
+                            for (let i = 0; i < doodleAssets.length; i++) {
+                                if (!neighborIndices.has(i)) validIndices.push(i);
+                            }
+
+                            if (validIndices.length > 0) {
+                                if (useDeterministic) {
+                                    hex.doodleIndex = validIndices[0];
+                                } else {
+                                    hex.doodleIndex = validIndices[Math.floor(Math.random() * validIndices.length)];
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Final Unconditional Check: Flag conflicts RED
+                // This runs regardless of what the loop thinks.
+                hexagons.forEach(hex => {
+                    const neighborIndices = new Set();
+                    hex.neighbors.forEach(n => neighborIndices.add(n.doodleIndex));
+                    if (neighborIndices.has(hex.doodleIndex)) {
+                        hex.hasConflict = true;
+                        // Force a random change as a last ditch if red appears
+                        const validIndices = [];
+                        for (let i = 0; i < doodleAssets.length; i++) {
+                            if (!neighborIndices.has(i)) validIndices.push(i);
+                        }
+                        if (validIndices.length > 0) hex.doodleIndex = validIndices[0];
+                    } else {
+                        hex.hasConflict = false;
+                    }
+                });
+            };
+
+            resolveConflicts();
             renderStaticGrid();
         };
 
