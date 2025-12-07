@@ -20,7 +20,7 @@ function App() {
         <Contact />
       </RevealOnScroll>
       <footer style={{ padding: '2rem 0', textAlign: 'center', borderTop: '1px solid var(--border-color)' }}>
-        <p>&copy; {new Date().getFullYear()} Portfolio. All rights reserved.</p>
+        <p style={{ fontWeight: 'bold' }}>&copy; {new Date().getFullYear()} Portfolio. All rights reserved.</p>
       </footer>
     </div>
   );

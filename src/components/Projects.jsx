@@ -83,17 +83,19 @@ const ProjectCard = ({ project }) => {
 
 export default function Projects() {
     return (
-        <section id="projects" style={{ backgroundColor: 'rgba(var(--secondary-bg-rgb), 0.5)', backdropFilter: 'blur(10px)' }}>
+        <section id="projects">
             <div className="container">
-                <h2 style={{ textAlign: 'center', marginBottom: '3rem' }}>Featured Projects</h2>
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-                    gap: '2rem'
-                }}>
-                    {projects.map((project, index) => (
-                        <ProjectCard key={index} project={project} />
-                    ))}
+                <div className="glass-panel" style={{ padding: '3rem' }}>
+                    <h2 style={{ textAlign: 'center', marginBottom: '3rem' }}>Featured Projects</h2>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                        gap: '2rem'
+                    }}>
+                        {projects.map((project, index) => (
+                            <ProjectCard key={index} project={project} />
+                        ))}
+                    </div>
                 </div>
             </div>
         </section>

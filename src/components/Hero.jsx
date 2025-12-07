@@ -58,10 +58,10 @@ export default function Hero() {
               I build <span style={{ color: 'var(--text-color)' }}>{typingText}</span>
               <span className="cursor">|</span>
             </h1>
-            <p style={{ fontSize: '1.25rem', marginBottom: '2rem' }}>
+            <p style={{ fontSize: '1.25rem', marginBottom: '2rem', textAlign: 'justify' }}>
               Currently shipping features as an <span style={{ color: 'var(--accent-color)', fontWeight: 'bold' }}>Software Engineer 2 at Microsoft</span>.
               I tackle problems with O(n) complexity and O(1) excuses.
-              Armed with a Master's & Bachelor's in CS and a license to push to production.
+              Armed with a Master's & Bachelor's in CS, and a license to push to production.
             </p>
             <a href="#projects" style={{
               display: 'inline-block',
