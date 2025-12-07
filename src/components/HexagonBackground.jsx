@@ -16,32 +16,35 @@ export default function HexagonBackground() {
         const offscreenCanvas = document.createElement('canvas');
         const offscreenCtx = offscreenCanvas.getContext('2d');
 
+        // Helper to get grid color (Defined *before* usage)
+        const getGridColor = () => {
+            return getComputedStyle(document.documentElement).getPropertyValue('--hex-grid-color').trim();
+        };
+
         let animationFrameId;
         let w, h;
-        const hexSize = 25; // Reduced from 50
+        const hexSize = 25;
         const hexagons = [];
         const activeHexagons = new Set();
-        const hexMap = new Map();
-        const ripples = [];
+        const ripples = []; // Store shockwaves
+        let gridColor = getGridColor();
         let isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
         // Doodle Icons
         const icons = [Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor, Beer, Gamepad2, Headphones, Terminal, Cpu, Database, Cloud, Server, Wifi, Guitar, Cat, Dog, Atom, Settings, Tent, ChessQueen, Binary, Binoculars, Hop, Cookie];
-        // Structure: [{ base: Image, neons: { [hue]: Image } }]
         const doodleAssets = [];
 
         // Neon Color Palettes (Hues)
-        // Green (120), Cyan/Blue (190), Pink (300), Purple (280), Yellow (60)
         const neonColors = [120, 190, 300, 280, 60];
 
         // Pre-render icons to images
         const loadDoodles = async () => {
-            doodleAssets.length = 0; // Clear existing
+            doodleAssets.length = 0;
 
             const promises = icons.map(async (Icon) => {
                 const assets = { base: null, neons: {} };
 
-                // 1. Create Base Image (Faint)
+                // 1. Create Base Image
                 const baseSvg = renderToStaticMarkup(
                     <Icon
                         size={hexSize * 1.2}
@@ -51,13 +54,13 @@ export default function HexagonBackground() {
                 );
                 assets.base = await loadImage(`data:image/svg+xml;base64,${btoa(baseSvg)}`);
 
-                // 2. Create Neon Images for each color
+                // 2. Create Neon Images
                 const neonPromises = neonColors.map(async (hue) => {
-                    const color = `hsl(${hue}, 100%, 60%)`; // Bright neon color
+                    const color = `hsl(${hue}, 100%, 60%)`;
                     const neonSvg = renderToStaticMarkup(
                         <Icon
                             size={hexSize * 1.2}
-                            strokeWidth={2} // Slightly thicker for highlight
+                            strokeWidth={2}
                             color={color}
                         />
                     );
@@ -71,7 +74,7 @@ export default function HexagonBackground() {
 
             const loadedAssets = await Promise.all(promises);
             doodleAssets.push(...loadedAssets);
-            init(); // Re-init after loading images
+            init();
         };
 
         const loadImage = (src) => {
@@ -81,22 +84,15 @@ export default function HexagonBackground() {
                 img.onload = () => resolve(img);
                 img.onerror = (e) => {
                     console.error("Failed to load image", e);
-                    resolve(null); // Resolve with null to avoid hanging
+                    resolve(null);
                 };
             });
         };
-
-        // Helper to get grid color
-        const getGridColor = () => {
-            return getComputedStyle(document.documentElement).getPropertyValue('--hex-grid-color').trim();
-        };
-        let gridColor = getGridColor();
 
         // Theme Observer
         const observer = new MutationObserver(() => {
             gridColor = getGridColor();
             isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-            // Reload doodles with new theme color
             loadDoodles();
         });
         observer.observe(document.documentElement, {
@@ -114,7 +110,6 @@ export default function HexagonBackground() {
             offscreenCtx.lineWidth = 1;
 
             hexagons.forEach(hex => {
-                // Draw Hexagon Outline
                 offscreenCtx.beginPath();
                 for (let i = 0; i < 6; i++) {
                     const angle = (Math.PI / 3) * i - Math.PI / 6;
@@ -126,7 +121,6 @@ export default function HexagonBackground() {
                 offscreenCtx.closePath();
                 offscreenCtx.stroke();
 
-                // Draw Base Doodle
                 if (doodleAssets.length > 0) {
                     const assets = doodleAssets[hex.doodleIndex % doodleAssets.length];
                     if (assets && assets.base) {
@@ -151,7 +145,6 @@ export default function HexagonBackground() {
             hexagons.length = 0;
             ripples.length = 0;
             activeHexagons.clear();
-            hexMap.clear();
             gridColor = getGridColor();
             isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
@@ -161,8 +154,6 @@ export default function HexagonBackground() {
 
             const rows = Math.ceil(h / (hHex * 0.75)) + 2;
             const cols = Math.ceil(w / wHex) + 2;
-
-            const gridMap = new Map(); // Store doodleIndex for (row,col)
 
             // Initial Generation
             for (let row = -1; row < rows; row++) {
@@ -174,10 +165,9 @@ export default function HexagonBackground() {
 
                     // Initial random assignment
                     const doodleIndex = Math.floor(Math.random() * doodleAssets.length);
-                    gridMap.set(`${row},${col}`, doodleIndex);
 
                     const hex = {
-                        row, col, // Store grid coordinates for neighbor lookup
+                        row, col,
                         x: cx,
                         y: cy,
                         intensity: 0,
@@ -185,102 +175,9 @@ export default function HexagonBackground() {
                         doodleIndex: doodleIndex
                     };
                     hexagons.push(hex);
-                    hexMap.set(`${row},${col}`, hex); // Populate fast lookup map
                 }
             }
-
-            // Helper: Get all 6 neighbors for a given hex
-            const getNeighbors = (r, c) => {
-                const isEven = Math.abs(r) % 2 === 0;
-                const neighbors = [];
-                // Directions: [rowDiff, colDiff]
-                // Note: colDiff depends on row parity for diagonal neighbors
-
-                // Left & Right
-                neighbors.push([r, c - 1]); // Left
-                neighbors.push([r, c + 1]); // Right
-
-                // Top & Bottom
-                if (isEven) {
-                    neighbors.push([r - 1, c - 1]); // Top-Left
-                    neighbors.push([r - 1, c]);     // Top-Right
-                    neighbors.push([r + 1, c - 1]); // Bottom-Left
-                    neighbors.push([r + 1, c]);     // Bottom-Right
-                } else {
-                    neighbors.push([r - 1, c]);     // Top-Left
-                    neighbors.push([r - 1, c + 1]); // Top-Right
-                    neighbors.push([r + 1, c]);     // Bottom-Left
-                    neighbors.push([r + 1, c + 1]); // Bottom-Right
-                }
-                return neighbors;
-            };
-
-            // Iterative Conflict Resolution
-            const resolveConflicts = () => {
-                let conflictsFound = true;
-                let passes = 0;
-                const maxPasses = 10;
-
-                while (conflictsFound && passes < maxPasses) {
-                    conflictsFound = false;
-                    passes++;
-
-                    hexagons.forEach(hex => {
-                        const neighbors = getNeighbors(hex.row, hex.col);
-                        const neighborIndices = new Set();
-
-                        neighbors.forEach(([nr, nc]) => {
-                            if (gridMap.has(`${nr},${nc}`)) {
-                                neighborIndices.add(gridMap.get(`${nr},${nc}`));
-                            }
-                        });
-
-                        if (neighborIndices.has(hex.doodleIndex)) {
-                            conflictsFound = true;
-                            // Pick a new valid index
-                            let newIndex;
-                            let attempts = 0;
-                            do {
-                                newIndex = Math.floor(Math.random() * doodleAssets.length);
-                                attempts++;
-                            } while (neighborIndices.has(newIndex) && attempts < 50);
-
-                            hex.doodleIndex = newIndex;
-                            gridMap.set(`${hex.row},${hex.col}`, newIndex);
-                        }
-                    });
-                }
-                console.log(`Hexagon Grid: Resolved conflicts in ${passes} passes.`);
-            };
-
-            resolveConflicts();
-
-            // Expose Validation Function
-            window.validateHexGrid = () => {
-                let valid = true;
-                let conflictCount = 0;
-                hexagons.forEach(hex => {
-                    const neighbors = getNeighbors(hex.row, hex.col);
-                    neighbors.forEach(([nr, nc]) => {
-                        if (gridMap.has(`${nr},${nc}`)) {
-                            const neighborIndex = gridMap.get(`${nr},${nc}`);
-                            if (neighborIndex === hex.doodleIndex) {
-                                console.error(`Conflict at [${hex.row},${hex.col}] with neighbor [${nr},${nc}]: Doodle ${hex.doodleIndex}`);
-                                valid = false;
-                                conflictCount++;
-                            }
-                        }
-                    });
-                });
-                if (valid) {
-                    console.log("%c Hexagon Grid Validated: No Conflicts Found! ", "background: #22c55e; color: #fff");
-                    return true;
-                } else {
-                    console.error(`Hexagon Grid Validation Failed: ${conflictCount} conflicts found.`);
-                    return false;
-                }
-            };
-
+            // No neighbor linking needed for pure shockwave
             renderStaticGrid();
         };
 
@@ -291,68 +188,45 @@ export default function HexagonBackground() {
                 ctx.drawImage(offscreenCanvas, 0, 0);
             }
 
-            // Update Ripples
+            // 1. Update Ripples (Expansion & Acceleration)
             for (let i = ripples.length - 1; i >= 0; i--) {
                 const r = ripples[i];
-                r.speed += r.acceleration; // Accelerate
+                r.speed += r.acceleration;
                 r.radius += r.speed;
+
+                // Remove dead ripples
                 if (r.radius > r.maxRadius) {
                     ripples.splice(i, 1);
+                    continue;
                 }
-            }
 
-            // Spatial Partitioning & Ripple Influence
-            const r = hexSize;
-            const wHex = Math.sqrt(3) * r;
-            const hHex = 2 * r;
-            const vertSpacing = hHex * 0.75;
+                // 2. Ignite Hexagons (Spatial Check)
+                // Using simple distance check for robustness
+                const ringWidth = r.speed * 3.0; // Thick ring for visibility
+                const innerRadiusSq = (r.radius - ringWidth) ** 2;
+                const outerRadiusSq = (r.radius) ** 2;
 
-            ripples.forEach(ripple => {
-                const buffer = 150;
-                const minRow = Math.floor((ripple.y - ripple.radius - buffer) / vertSpacing);
-                const maxRow = Math.ceil((ripple.y + ripple.radius + buffer) / vertSpacing);
-                const minCol = Math.floor((ripple.x - ripple.radius - buffer) / wHex);
-                const maxCol = Math.ceil((ripple.x + ripple.radius + buffer) / wHex);
+                hexagons.forEach(hex => {
+                    const dx = hex.x - r.x;
+                    const dy = hex.y - r.y;
+                    const distSq = dx * dx + dy * dy;
 
-                for (let row = minRow; row <= maxRow; row++) {
-                    for (let col = minCol; col <= maxCol; col++) {
-                        const key = `${row},${col}`;
-                        const hex = hexMap.get(key);
-
-                        if (hex) {
-                            const dx = hex.x - ripple.x;
-                            const dy = hex.y - ripple.y;
-                            const distSq = dx * dx + dy * dy;
-                            const outerRadius = ripple.radius + 100;
-
-                            if (distSq < outerRadius * outerRadius) {
-                                const d = Math.sqrt(distSq);
-                                const ringWidth = 100;
-                                const distToRing = Math.abs(d - ripple.radius);
-
-                                if (distToRing < ringWidth) {
-                                    const normDist = distToRing / ringWidth;
-                                    const smoothFactor = (Math.cos(normDist * Math.PI) + 1) / 2;
-
-                                    const ringIntensity = smoothFactor * ripple.strength * (1 - ripple.radius / ripple.maxRadius);
-
-                                    if (ringIntensity > 0.01) {
-                                        hex.intensity += ringIntensity * 0.6;
-                                        hex.hue = ripple.hue;
-                                        activeHexagons.add(hex);
-                                    }
-                                }
-                            }
+                    if (distSq >= innerRadiusSq && distSq <= outerRadiusSq) {
+                        // Ignite!
+                        if (hex.intensity < 0.3) { // Only if not already bright
+                            hex.intensity = 1.0;
+                            hex.hue = r.hue;
+                            activeHexagons.add(hex);
                         }
                     }
-                }
-            });
+                });
+            }
 
-            // Render Active Hexagons
+            // 3. Render Active Hexagons (Fade Out)
             ctx.globalCompositeOperation = 'lighter';
 
             activeHexagons.forEach(hex => {
-                hex.intensity *= 0.92;
+                hex.intensity *= 0.92; // Fast decay for "spark" look
 
                 if (hex.intensity < 0.01) {
                     hex.intensity = 0;
@@ -394,8 +268,20 @@ export default function HexagonBackground() {
             };
         };
 
+        const getHexAt = (x, y) => {
+            // Simple brute force closest hex for interaction
+            for (const hex of hexagons) {
+                const dx = hex.x - x;
+                const dy = hex.y - y;
+                const dSq = dx * dx + dy * dy;
+                if (dSq < hexSize * hexSize) {
+                    return hex;
+                }
+            }
+            return null;
+        };
+
         const handleClick = (e) => {
-            // Ignore clicks on interactive elements and glass panels
             if (e.target.closest('a, button, input, textarea, select, [role="button"], .glass-panel')) {
                 return;
             }
@@ -404,20 +290,27 @@ export default function HexagonBackground() {
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
-            // Cycle colors
             const hue = neonColors[colorIndexRef.current % neonColors.length];
             colorIndexRef.current++;
 
+            // Create Shockwave
             ripples.push({
                 x: x,
                 y: y,
                 radius: 0,
-                maxRadius: Math.max(w, h) * 1.5, // Cover entire screen
-                speed: 5, // Start slower
-                acceleration: 0.4, // Accelerate over time
-                strength: 1.2,
+                maxRadius: Math.max(w, h) * 1.5,
+                speed: 10,         // Start fast
+                acceleration: 0.5, // Get faster
                 hue: hue
             });
+
+            // Also light up the center immediately
+            const centerHex = getHexAt(x, y);
+            if (centerHex) {
+                centerHex.intensity = 1.0;
+                centerHex.hue = hue;
+                activeHexagons.add(centerHex);
+            }
         };
 
         loadDoodles();
