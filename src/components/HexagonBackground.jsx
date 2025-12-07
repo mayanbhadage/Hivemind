@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor } from 'lucide-react';
+import { Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor, Beer, Gamepad, Headphones, Terminal, Cpu, Database, Cloud, Server, Wifi } from 'lucide-react';
 
 export default function HexagonBackground() {
     const canvasRef = useRef(null);
@@ -23,7 +23,7 @@ export default function HexagonBackground() {
         let isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
         // Doodle Icons
-        const icons = [Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor];
+        const icons = [Coffee, Clock, Zap, Code, Brain, Rocket, Star, Heart, Music, Camera, Globe, Anchor, Beer, Gamepad, Headphones, Terminal, Cpu, Database, Cloud, Server, Wifi];
         // Structure: [{ base: Image, neons: { [hue]: Image } }]
         const doodleAssets = [];
 
@@ -153,21 +153,122 @@ export default function HexagonBackground() {
             const rows = Math.ceil(h / (hHex * 0.75)) + 2;
             const cols = Math.ceil(w / wHex) + 2;
 
+            const gridMap = new Map(); // Store doodleIndex for (row,col)
+
+            // Initial Generation
             for (let row = -1; row < rows; row++) {
                 for (let col = -1; col < cols; col++) {
-                    const xOffset = (row % 2) * (wHex / 2);
+                    const isEvenRow = Math.abs(row) % 2 === 0;
+                    const xOffset = isEvenRow ? 0 : (wHex / 2);
                     const cx = col * wHex + xOffset;
                     const cy = row * (hHex * 0.75);
 
+                    // Initial random assignment
+                    const doodleIndex = Math.floor(Math.random() * doodleAssets.length);
+                    gridMap.set(`${row},${col}`, doodleIndex);
+
                     hexagons.push({
+                        row, col, // Store grid coordinates for neighbor lookup
                         x: cx,
                         y: cy,
                         intensity: 0,
-                        hue: 180, // Default hue
-                        doodleIndex: Math.floor(Math.random() * doodleAssets.length)
+                        hue: 180,
+                        doodleIndex: doodleIndex
                     });
                 }
             }
+
+            // Helper: Get all 6 neighbors for a given hex
+            const getNeighbors = (r, c) => {
+                const isEven = Math.abs(r) % 2 === 0;
+                const neighbors = [];
+                // Directions: [rowDiff, colDiff]
+                // Note: colDiff depends on row parity for diagonal neighbors
+
+                // Left & Right
+                neighbors.push([r, c - 1]); // Left
+                neighbors.push([r, c + 1]); // Right
+
+                // Top & Bottom
+                if (isEven) {
+                    neighbors.push([r - 1, c - 1]); // Top-Left
+                    neighbors.push([r - 1, c]);     // Top-Right
+                    neighbors.push([r + 1, c - 1]); // Bottom-Left
+                    neighbors.push([r + 1, c]);     // Bottom-Right
+                } else {
+                    neighbors.push([r - 1, c]);     // Top-Left
+                    neighbors.push([r - 1, c + 1]); // Top-Right
+                    neighbors.push([r + 1, c]);     // Bottom-Left
+                    neighbors.push([r + 1, c + 1]); // Bottom-Right
+                }
+                return neighbors;
+            };
+
+            // Iterative Conflict Resolution
+            const resolveConflicts = () => {
+                let conflictsFound = true;
+                let passes = 0;
+                const maxPasses = 10;
+
+                while (conflictsFound && passes < maxPasses) {
+                    conflictsFound = false;
+                    passes++;
+
+                    hexagons.forEach(hex => {
+                        const neighbors = getNeighbors(hex.row, hex.col);
+                        const neighborIndices = new Set();
+
+                        neighbors.forEach(([nr, nc]) => {
+                            if (gridMap.has(`${nr},${nc}`)) {
+                                neighborIndices.add(gridMap.get(`${nr},${nc}`));
+                            }
+                        });
+
+                        if (neighborIndices.has(hex.doodleIndex)) {
+                            conflictsFound = true;
+                            // Pick a new valid index
+                            let newIndex;
+                            let attempts = 0;
+                            do {
+                                newIndex = Math.floor(Math.random() * doodleAssets.length);
+                                attempts++;
+                            } while (neighborIndices.has(newIndex) && attempts < 50);
+
+                            hex.doodleIndex = newIndex;
+                            gridMap.set(`${hex.row},${hex.col}`, newIndex);
+                        }
+                    });
+                }
+                console.log(`Hexagon Grid: Resolved conflicts in ${passes} passes.`);
+            };
+
+            resolveConflicts();
+
+            // Expose Validation Function
+            window.validateHexGrid = () => {
+                let valid = true;
+                let conflictCount = 0;
+                hexagons.forEach(hex => {
+                    const neighbors = getNeighbors(hex.row, hex.col);
+                    neighbors.forEach(([nr, nc]) => {
+                        if (gridMap.has(`${nr},${nc}`)) {
+                            const neighborIndex = gridMap.get(`${nr},${nc}`);
+                            if (neighborIndex === hex.doodleIndex) {
+                                console.error(`Conflict at [${hex.row},${hex.col}] with neighbor [${nr},${nc}]: Doodle ${hex.doodleIndex}`);
+                                valid = false;
+                                conflictCount++;
+                            }
+                        }
+                    });
+                });
+                if (valid) {
+                    console.log("%c Hexagon Grid Validated: No Conflicts Found! ", "background: #22c55e; color: #fff");
+                    return true;
+                } else {
+                    console.error(`Hexagon Grid Validation Failed: ${conflictCount} conflicts found.`);
+                    return false;
+                }
+            };
 
             renderStaticGrid();
         };
